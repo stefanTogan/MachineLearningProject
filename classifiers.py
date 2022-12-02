@@ -1,12 +1,9 @@
 import os
 import sys
 import time
-
 import pandas as pd
 import numpy as np
 import csv
-
-from playsound import playsound
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.linear_model import LogisticRegression
