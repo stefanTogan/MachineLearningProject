@@ -150,46 +150,108 @@ def logreg_plot(X, y):
     ax.legend()
 
 
-'''def KNNcrossval(X, y):
-    kf = StratifiedKFold(n_splits=5)
+def KNNcrossval(X, y):
+    kf = StratifiedKFold(n_splits=4)
     plt.rc('font', size=18); plt.rcParams['figure.constrained_layout.use'] = True
     mean_acc=[]; std_acc=[]
-    k_range = range(2,21,2)
+    mean_recall=[]; std_recall=[]
+    mean_precision=[]; std_precision=[]
+    mean_f1=[]; std_f1=[]
+    k_range = range(2,18,3)
     fig, ax = plt.subplots()
     for k in k_range:
         knn = KNeighborsClassifier(n_neighbors=k)
-        temp=[]
+        temp_acc=[]
+        temp_recall=[]
+        temp_precision=[]
+        temp_f1=[]
         for train,test in kf.split(X, y):
             knn.fit(X[train], y[train])
             ypred = knn.predict(X[test])
-            temp.append(metrics.precision_score(y[test],ypred))
-        mean_acc.append(np.array(temp).mean())
-        std_acc.append(np.array(temp).std())
-    ax.errorbar(k_range, mean_acc, yerr=std_acc, color='hotpink', linewidth = 2, label = 'kNN')
+            temp_acc.append(metrics.accuracy_score(y[test],ypred))
+            temp_recall.append(metrics.recall_score(y[test], ypred))
+            temp_precision.append(metrics.precision_score(y[test], ypred))
+            temp_f1.append(metrics.f1_score(y[test], ypred))
+        mean_acc.append(np.array(temp_acc).mean()); std_acc.append(np.array(temp_acc).std())
+        mean_recall.append(np.array(temp_recall).mean()); std_recall.append(np.array(temp_recall).std())
+        mean_precision.append(np.array(temp_precision).mean()); std_precision.append(np.array(temp_precision).std())
+        mean_f1.append(np.array(temp_f1).mean()); std_f1.append(np.array(temp_f1).std())
+        print("k= " + str(k))
+        print([np.array(temp_acc).mean(), np.array(temp_recall).mean(), np.array(temp_precision).mean(),
+               np.array(temp_f1).mean()])
+        print(confusion_matrix(y[test], ypred))
+    ax.errorbar(k_range, mean_acc, yerr=std_acc, color='olivedrab', linewidth = 2, label = 'Accuracy')
+    ax.errorbar(k_range, mean_recall, yerr=std_recall, color='hotpink', linewidth = 2, label= 'Recall')
+    ax.errorbar(k_range, mean_precision, yerr=std_precision, color='goldenrod', linewidth=2, label='Precision')
+    ax.errorbar(k_range, mean_f1, yerr=std_f1, color='salmon', linewidth=2, label='F1 Score')
     ax.set_xlabel('#Neighbours (k)')
-    ax.set_ylabel('Precision')'''
+    ax.set_ylabel('Score')
+    ax.legend()
 
-
-def MLPcrossval(X, y):
-    mean_error = []
-    std_error = []
+def MLPcrossval(X,y):
+    mean_acc = [];
+    std_acc = []
+    mean_recall = [];
+    std_recall = []
+    mean_precision = [];
+    std_precision = []
+    mean_f1 = [];
+    std_f1 = []
     fig, ax = plt.subplots()
-    hidden_layer_range = [5, 10, 25, 50, 75, 100]
-    for n in hidden_layer_range:
-        print('Hidden layer size: ' + str(n))
-        model = MLPClassifier(hidden_layer_sizes=(n), max_iter=300)
+    C_range = [0.1, 1, 5, 10, 50, 100]
+    for C in C_range:
+        print('C: ' + str(C))
+        model = MLPClassifier(hidden_layer_sizes=(50), alpha=1 / C, max_iter=200)
+    #hidden_layer_range = [5, 10, 25, 50, 75, 100]
+    #for n in hidden_layer_range:
+    #    print('Hidden layer size: ' + str(n))
+    #    model = MLPClassifier(hidden_layer_sizes=(n), max_iter = 300)
         scores = logreg_analysis(model, X, y)
-        mean_error.append(np.array(scores).mean())
-        std_error.append(np.array(scores).std())
-    plt.errorbar
+        mean_acc.append(np.array(scores[0]).mean());
+        std_acc.append(np.array(scores[0]).std())
+        mean_recall.append(np.array(scores[1]).mean());
+        std_recall.append(np.array(scores[1]).std())
+        mean_precision.append(np.array(scores[2]).mean());
+        std_precision.append(np.array(scores[2]).std())
+        mean_f1.append(np.array(scores[3]).mean());
+        std_f1.append(np.array(scores[3]).std())
+    ax.errorbar(hidden_layer_range, mean_acc, yerr = std_acc, linewidth=2, color='olivedrab', label='Accuracy')
+    ax.errorbar(hidden_layer_range, mean_recall, yerr=std_recall, linewidth=2, color='hotpink', label='Recall')
+    ax.errorbar(hidden_layer_range, mean_precision, yerr=std_precision, linewidth=2, color='goldenrod', label='Precision')
+    ax.errorbar(hidden_layer_range, mean_f1, yerr=std_f1, linewidth=2, color='salmon', label='F1 Score')
+    #ax.set_xlabel('Hidden Layer Size')
+    ax.set_xlabel('C')
+    ax.set_ylabel('Score')
+    ax.legend()
+
+def MLPsolve(X,y,layers):
+    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    model = MLPClassifier(hidden_layer_sizes=(layers)).fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+    print(confusion_matrix(y_test, y_pred))
+    dummy = DummyClassifier(strategy='most_frequent').fit(x_train, y_train)
+    y_dummy = dummy.predict(x_test)
+    print(confusion_matrix(y_test, y_dummy))
+
+    probs = model.predict_proba(x_test)
+    fpr, tpr, _ = roc_curve(y_test, probs[:,1])
+    fig, ax = plt.subplots()
+    ax.plot(fpr, tpr, label = 'MLP')
+    model_ridge = LogisticRegression(penalty='l2', solver='lbfgs', C=0.001, max_iter=10000).fit(x_train, y_train)
+    fpr, tpr, _ = roc_curve(y_test, model_ridge.decision_function(x_test))
+    ax.plot(fpr, tpr, color='orange', label = 'Logistic Regression')
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.plot([0,1], [0,1], color='green', linestyle='--')
+    ax.legend()
 
 
-y = df_large.iloc[:, 2].values
-X = df_large.iloc[:, 3:].values
-n_set = [0.001, 0.01, 0.05, 0.1, 0.3369]
+y = df_large.iloc[:,2].values
+X = df_large.iloc[:,3:155].values
+n_set = [0.001, 0.01, 0.05, 0.1, 0.34]
 #plot_baseline(n_set)
-
-logreg_plot(X, y)
-
-# KNNcrossval(X,y)
+#logreg_plot(X,y)
+#KNNcrossval(X,y)
+#MLPcrossval(X,y)
+#MLPsolve(X,y,50)
 plt.show()
